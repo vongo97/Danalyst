@@ -28,11 +28,25 @@ jobs:
           npm install --legacy-peer-deps
           npm run build --if-present
 
+      - name: Optimize deployment size
+        run: |
+          # Eliminar archivos innecesarios
+          if exist node_modules rmdir /s /q node_modules
+          if exist .next\cache rmdir /s /q .next\cache
+          if exist .next\server\chunks\*.js.map del /s /q .next\server\chunks\*.js.map
+          if exist .next\static\chunks\*.js.map del /s /q .next\static\chunks\*.js.map
+          if exist .next\types rmdir /s /q .next\types
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: |
+            .
+            !node_modules
+            !.git
+            !.github
+            !.next/cache
 
   deploy:
     runs-on: ubuntu-latest
