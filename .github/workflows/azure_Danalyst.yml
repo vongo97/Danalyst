@@ -32,13 +32,11 @@ jobs:
       - name: Optimize deployment size
         run: |
           # Eliminar archivos innecesarios de la build para reducir el tamaño del artefacto
-          # Nota: Estos comandos son para Windows (rmdir /s /q y del /s /q)
-          if exist .next\cache rmdir /s /q .next\cache || echo "Cache folder not found or already removed"
-          if exist .next\server\chunks\*.js.map del /s /q .next\server\chunks\*.js.map || echo "Source maps not found or already removed"
-          if exist .next\static\chunks\*.js.map del /s /q .next\static\chunks\*.js.map || echo "Source maps not found or already removed"
-          if exist .next\types rmdir /s /q .next\types || echo "Types folder not found or already removed"
-          # La carpeta node_modules NO se incluye directamente en el artefacto si 'path' es .next/
-          # pero si se limpia antes de build localmente para desarrollo, es útil.
+          # Comandos optimizados para PowerShell en Windows
+          if (Test-Path -Path ".\.next\cache") { Remove-Item -Path ".\.next\cache" -Recurse -Force }
+          if (Test-Path -Path ".\.next\server\chunks\*.js.map") { Remove-Item -Path ".\.next\server\chunks\*.js.map" -Recurse -Force }
+          if (Test-Path -Path ".\.next\static\chunks\*.js.map") { Remove-Item -Path ".\.next\static\chunks\*.js.map" -Recurse -Force }
+          if (Test-Path -Path ".\.next\types") { Remove-Item -Path ".\.next\types" -Recurse -Force }
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -63,7 +61,7 @@ jobs:
           name: node-app
 
       - name: Login to Azure
-        uses: azure/login@v1 # <--- ¡IMPORTANTE: CAMBIADO A v1 para usar creds!
+        uses: azure/login@v1 # <--- ¡IMPORTANTE: CAMBIADO A v1!
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }} # <--- ¡IMPORTANTE: USA EL SECRETO AZURE_CREDENTIALS!
 
