@@ -29,6 +29,14 @@ jobs:
           npm run build --if-present
         # Puedes añadir "npm run test --if-present" si tienes pruebas configuradas
 
+      # PASO DE DEPURACIÓN: Muestra el contenido del directorio antes de la optimización
+      - name: Debug - List directory contents after build
+        run: |
+          Write-Host "Listing current directory contents:"
+          Get-ChildItem -Path . -Directory -Depth 1 # List directories
+          Write-Host "Listing .next directory contents:"
+          Get-ChildItem -Path ".\.next\" -Recurse -ErrorAction SilentlyContinue # List .next contents, suppress errors if not found
+
       - name: Optimize deployment size
         run: |
           # Eliminar archivos innecesarios de la build para reducir el tamaño del artefacto
@@ -37,6 +45,12 @@ jobs:
           if (Test-Path -Path ".\.next\server\chunks\*.js.map") { Remove-Item -Path ".\.next\server\chunks\*.js.map" -Recurse -Force }
           if (Test-Path -Path ".\.next\static\chunks\*.js.map") { Remove-Item -Path ".\.next\static\chunks\*.js.map" -Recurse -Force }
           if (Test-Path -Path ".\.next\types") { Remove-Item -Path ".\.next\types" -Recurse -Force }
+        
+      # PASO DE DEPURACIÓN: Muestra el contenido del directorio después de la optimización
+      - name: Debug - List directory contents after optimization
+        run: |
+          Write-Host "Listing .next directory contents AFTER optimization:"
+          Get-ChildItem -Path ".\.next\" -Recurse -ErrorAction SilentlyContinue # List .next contents
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
