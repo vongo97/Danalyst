@@ -37,7 +37,7 @@ jobs:
           Write-Host "Listing .next directory contents (before optimization):"
           Get-ChildItem -Path ".\.next\" -Recurse -ErrorAction SilentlyContinue # List .next contents, suppress errors if not found
 
-      - name: Optimize deployment size
+      - name: Optimize deployment size and Zip
         run: |
           # Eliminar archivos innecesarios de la build para reducir el tamaño del artefacto
           # Comandos optimizados para PowerShell en Windows para mayor robustez
@@ -55,18 +55,20 @@ jobs:
           Write-Host "Attempting to remove static CSS source maps (css.map)..."
           Get-ChildItem -Path ".\.next\static\css\" -Filter "*.css.map" -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue }
 
-      # PASO DE DEPURACIÓN: Muestra el contenido del directorio después de la optimización
-      - name: Debug - List directory contents after optimization
-        run: |
-          Write-Host "Listing .next directory contents AFTER optimization (should be smaller):"
-          Get-ChildItem -Path ".\.next\" -Recurse -ErrorAction SilentlyContinue # List .next contents
+          # PASO ADICIONAL: Comprimir la carpeta .next en un archivo zip
+          Write-Host "Zipping .next folder into node-app.zip..."
+          Compress-Archive -Path ".\.next" -DestinationPath ".\node-app.zip" -Force
+          Write-Host "Contents of current directory after zipping:"
+          Get-ChildItem -Path . -ErrorAction SilentlyContinue
+          Write-Host "Size of node-app.zip:"
+          (Get-Item ".\node-app.zip").Length / 1MB # Display size in MB
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
-          name: node-app
-          path: .next # <--- ¡CAMBIO AQUÍ! Eliminado el slash final.
-          if-no-files-found: error # Forzará un fallo si no encuentra archivos.
+          name: node-app # Nombre del artefacto
+          path: node-app.zip # <--- ¡AHORA SE SUBE EL ARCHIVO ZIP!
+          if-no-files-found: error # Forzará un fallo si no encuentra el ZIP
 
   deploy:
     runs-on: ubuntu-latest
@@ -82,8 +84,14 @@ jobs:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: node-app
+          name: node-app # Esto descargará node-app.zip en el workspace del runner
 
+      - name: Extract artifact (node-app.zip)
+        run: |
+          unzip node-app.zip -d extracted-app # Comando para Linux (ubuntu-latest)
+          Write-Host "Contents of extracted-app folder:"
+          ls -F extracted-app/ # Listar el contenido para depuración
+      
       - name: Login to Azure
         uses: azure/login@v1 # <--- ¡IMPORTANTE: v1!
         with:
@@ -95,4 +103,4 @@ jobs:
         with:
           app-name: "Danalyst"
           slot-name: "Production"
-          package: . # Esto es correcto porque el artefacto descargado será el contenido de .next/
+          package: extracted-app # <--- Se apunta a la carpeta extraída
