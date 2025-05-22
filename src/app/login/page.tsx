@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { siteConfig } from '@/config/site';
 
 export default function LoginPage() {
@@ -15,8 +15,17 @@ export default function LoginPage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
 
-  // Verificar si el usuario viene de la página de registro
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.push(callbackUrl);
+    }
+  }, [status, router, callbackUrl]);
+
+  // Handle messages from query params (e.g., after registration or OAuth error)
   useEffect(() => {
     const registered = searchParams.get('registered');
     if (registered === 'true') {
@@ -24,8 +33,10 @@ export default function LoginPage() {
     }
 
     const error = searchParams.get('error');
-    if (error) {
+    if (errorParam === 'CredentialsSignin') { // Specific error from NextAuth
       setError('Credenciales incorrectas. Por favor, intenta de nuevo.');
+    } else if (errorParam) {
+      setError('Ocurrió un error al iniciar sesión. Por favor, intenta de nuevo.');
     }
   }, [searchParams]);
 
@@ -37,39 +48,50 @@ export default function LoginPage() {
     try {
       // Usar NextAuth para iniciar sesión
       const result = await signIn('credentials', {
-        redirect: false,
+        redirect: false, // Important to handle redirect manually or rely on useEffect
         email,
         password,
+        callbackUrl: callbackUrl // Pass callbackUrl to NextAuth
       });
 
       if (result?.error) {
-        setError('Credenciales incorrectas. Por favor, intenta de nuevo.');
+        // Error is handled by the useEffect hook listening to searchParams.get('error')
+        // but we can set a general message or log if needed.
+        // setError('Credenciales incorrectas o error en el inicio de sesión.');
+        // router.push(`/login?error=${result.error}`); // This is often handled by NextAuth itself if redirect is not false
+        if (result.error !== 'CredentialsSignin') { // CredentialsSignin is handled by useEffect
+            setError('Ocurrió un error inesperado durante el inicio de sesión.');
+        }
         setIsLoading(false);
         return;
       }
 
-      // Redirigir a la página principal en caso de éxito
-      window.location.href = '/';
+      // If signIn is successful and there's no error,
+      // the useEffect for status === 'authenticated' should handle the redirect.
+      // For immediate feedback or if useEffect is slow, uncomment:
+      // router.push(callbackUrl);
+      // setIsLoading(false); // Already handled by status change and useEffect redirect
+
     } catch (error) {
-      console.error('Login error:', error);
-      setError('Ocurrió un error al iniciar sesión. Por favor, intenta de nuevo.');
+      console.error('Login submission error:', error);
+      setError('Ocurrió un error al procesar el inicio de sesión. Por favor, intenta de nuevo.');
       setIsLoading(false);
     }
+    // setIsLoading(false) should be called regardless of outcome if not redirecting immediately
+    // but since status change will trigger re-render or redirect, it might not be needed here.
   };
 
-
-  // Función para depuración
-  const checkAuthStatus = async () => {
-    try {
-      const response = await fetch('/api/auth/session');
-      const session = await response.json();
-      console.log('Estado de sesión:', session);
-      alert(session?.user ? `Usuario autenticado: ${session.user.email}` : 'No hay sesión activa');
-    } catch (error) {
-      console.error('Error checking session:', error);
-      alert('Error al verificar la sesión');
-    }
-  };
+  // While NextAuth is checking session status, show loading or minimal UI
+  if (status === 'loading') {
+    return (
+      <div className="flex min-h-screen bg-gray-50 items-center justify-center">
+        <div className="p-8 rounded-lg shadow-md">
+          <p className="text-lg font-semibold text-gray-700">Cargando...</p>
+          {/* You can add a spinner here */}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -171,17 +193,6 @@ export default function LoginPage() {
                   </button>
                 </div>
               </form>
-
-              {/* Botón para depuración */}
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={checkAuthStatus}
-                  className="text-sm text-gray-500 hover:text-gray-700"
-                >
-                  Verificar estado de sesión
-                </button>
-              </div>
             </div>
           </div>
         </div>

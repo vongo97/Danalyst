@@ -28,16 +28,6 @@ export async function registerUser(
 // Función para autenticar un usuario
 export async function authenticateUser(email: string, password: string) {
   try {
-    // Credenciales hardcodeadas para desarrollo
-    if (email === "admin@example.com" && password === "password") {
-      return {
-        id: "1",
-        name: "Admin User",
-        email: "admin@example.com",
-        role: "admin",
-      };
-    }
-
     // Buscar usuario por email en la base de datos
     const user = await getUserByEmail(email);
     if (!user) {
